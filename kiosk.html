@@ -118,7 +118,7 @@
 
   // ---------- Config ----------
   const SHOW_MS = 5000;                       // how long the result stays on screen
-  const FILE_CANDIDATES = ['Lessons.tsv', 'Lessons.txt'];
+  const FILE_CANDIDATES = ['Lessons.tsv', 'Lessons.txt', 'lessons.tsv', 'lessons.txt', 'Lessons.tsv.txt', 'Lessons.txt.txt'];
   const RELOAD_EVERY_MS = 60 * 60 * 1000;     // re-fetch the timetable every hour
   const EXCLUDE_SUBJECTS = new Set(['mobile collection', 'mobile return', 'changing time', 'jr. pickup', 'phones turned in']);
   const BREAK_RE = /^(break|lunch|rast)/i;
@@ -248,14 +248,25 @@
   }
 
   async function load() {
-    for (const name of FILE_CANDIDATES) {
-      try {
-        const r = await fetch(name + '?cachebust=' + Date.now(), { cache: 'no-store' });
-        if (!r.ok) continue;
-        if (ingest(await r.arrayBuffer())) return;
-      } catch (e) { /* not reachable */ }
+    const notes = [];
+    if (location.protocol === 'file:') {
+      notes.push('Page opened from a file (file://) – browsers block auto-loading. Open it from the GitHub Pages https:// address, or tap the logo 5× to load the file.');
+    } else {
+      for (const name of FILE_CANDIDATES) {
+        try {
+          const r = await fetch(name + '?cachebust=' + Date.now(), { cache: 'no-store' });
+          if (!r.ok) { notes.push(name + ' → ' + r.status); continue; }
+          if (ingest(await r.arrayBuffer())) return;
+          notes.push(name + ' → found but could not be read (not a tab-separated timetable export?)');
+        } catch (e) { notes.push(name + ' → ' + e.message); }
+      }
     }
-    if (!lessons.length) grid.innerHTML = '<div class="msg">😕 Timetable not found.<br>Please ask a member of staff.</div>';
+    if (!lessons.length) {
+      const here = location.href.replace(/[^/]*$/, '');
+      grid.innerHTML = `<div class="msg"><div>😕 Timetable not found.<br>Please ask a member of staff.
+        <div style="font-size:2vmin;font-weight:600;opacity:.75;margin-top:3vmin;text-align:left;max-width:90vmin">
+          Looked in: ${esc(here)}<br>${notes.map(esc).join('<br>')}</div></div></div>`;
+    }
   }
 
   // hidden staff option: tap the logo 5 times quickly to load a file by hand
